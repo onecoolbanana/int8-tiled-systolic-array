@@ -135,13 +135,13 @@ far cheaper to find there than through 64 tiles of full datapath.
 |---|---|---|---|
 | Baseline — single byte-wide memory, no overlap | 3075 | 1.33 | 8.3% |
 | Split `mem_a`/`mem_b`, widened to 32-bit | 1347 | 3.04 | 19.0% |
-| Shadow registers on the accumulator output | **1092** | **3.75** | **23.4%** |
+| Buffer between systolic array and result memory | **1092** | **3.75** | **23.4%** |
 
 4096 MACs; array peak is 16 MACs/cycle.
 
 ### Where the time went, and why
 
-The first working version was **8% utilised**. Profiling showed the array idle for
+The first working version was **8% utilised**. The array was idle for
 most of its cycles waiting on memory: the 4×4 grid consumes 8 bytes per cycle and a
 single byte-wide port supplies 1, so loading a tile pair took 32 reads to feed 7
 cycles of compute.
@@ -150,9 +150,12 @@ Splitting A and B into separate 32-bit memories made one word equal one tile row
 and let both reads issue in the same cycle. Load dropped from 33 cycles to 5, for a
 2.3× overall speedup.
 
-That left the 17-cycle store as the next largest idle block. Latching the
-accumulators into shadow registers let the writer run concurrently with the next
-tile's compute, costing 512 flops and recovering another 19%.
+That left the 17-cycle store as the next largest idle block. The array would stay idle
+and wait for a store to fully finish before starting the next matrix multiply. Adding a
+buffer between the systolic array and the result memory, storing all PEs outputs enabled
+the writer to run concurrently with the next tile's compute. This cost 512 flops but recovered
+~16 cycles per output tile.
+
 
 Current breakdown, ~68 cycles per output tile:
 
